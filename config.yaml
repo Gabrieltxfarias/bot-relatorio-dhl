@@ -51,6 +51,16 @@ seletores:
   processo_concluido: ".process-success"   # ícone/texto "Concluído" no item da barra
   processo_erro: ""                        # opcional: marcador de falha no item
 
+textos:
+  # Aviso que o TMS mostra quando a pesquisa não encontra nada (qualquer um destes)
+  sem_resultados:
+    - "Nenhum registro"
+    - "Nenhum resultado"
+    - "Não há registros"
+    - "Não foram encontrados"
+    - "Nenhum dado"
+    - "Sem registros"
+
 rotulos:                     # usados só se status_campo/usuario_campo estiverem vazios
   status: "Status"
   usuario_solicitante: "Usuário Solicitante"

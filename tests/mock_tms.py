@@ -140,7 +140,10 @@ class Handler(BaseHTTPRequestHandler):
             "usuario": form.get(P + "USUARIOSOLICITANTE", []),
         }
         grid = ""
-        if alvo.endswith("FilterButton") or arg == "ExportToExcel":
+        if alvo.endswith("FilterButton") and filtro["de"] == "01/01/2026":
+            Estado.ultimo_filtro = filtro
+            grid = "<table class='grid'><tr><td>Nenhum registro encontrado.</td></tr></table>"
+        elif alvo.endswith("FilterButton") or arg == "ExportToExcel":
             Estado.ultimo_filtro = filtro
             grid = """<div id="ctl00_Main_K_INCLUSODESERVIOSACESSRIOS_SimpleGrid_ctl01_id">
               <div class="btn extra-options-button" onclick="$('#menu').toggle()">⋮</div></div>

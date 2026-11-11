@@ -20,6 +20,8 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from bot.caminho_planilha import resolver_caminho_planilha
+import pandas as pd
+
 from bot.conferencia import conferir_relatorio
 from bot.config import RAIZ, carregar_config
 from bot.periodo import Estado, Periodo, calcular_periodo
@@ -111,8 +113,12 @@ def processar(cfg: dict, periodo: Periodo, arquivo: str | None) -> tuple[int, in
             arquivo = bot.executar(periodo.de, periodo.ate)
 
     log = logging.getLogger("main")
-    df = ler_exportacao(arquivo)
-    log.info("Relatório do TMS: %s", Path(arquivo).resolve())
+    if arquivo is None:  # pesquisa sem resultados: nada para exportar
+        log.info("Relatório do TMS: nenhum (a pesquisa não retornou lançamentos).")
+        df = pd.DataFrame()
+    else:
+        df = ler_exportacao(arquivo)
+        log.info("Relatório do TMS: %s", Path(arquivo).resolve())
     total = len(df)
     df = conferir_relatorio(df, cfg["filtros"], periodo.de, periodo.ate)
     fora_filtros = total - len(df)

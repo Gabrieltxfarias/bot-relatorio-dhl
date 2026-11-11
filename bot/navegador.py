@@ -382,9 +382,28 @@ class BotTMS:
                                " try { if (jQuery(this).data('select2')) jQuery(this).select2('close'); }"
                                " catch (e) {} }); }")
 
-    def pesquisar(self) -> None:
+    def pesquisar(self) -> bool:
+        """Pesquisa e diz se houve resultado. False = TMS não encontrou lançamentos."""
         log.info("Pesquisando...")
         self._clicar_postback(self._el("botao_pesquisar"))
+        textos = self.cfg.get("textos", {}).get("sem_resultados") or [
+            "Nenhum registro", "Nenhum resultado", "Não há registros", "Não foram encontrados",
+            "Nenhum dado", "Sem registros", "Nenhum item", "No records", "No data",
+        ]
+        rx_vazio = re.compile("|".join(re.escape(t) for t in textos), re.I)
+        tres = self.page.locator(self.sel["tres_pontos"]).first
+        fim = time.time() + 30
+        while time.time() < fim:
+            if tres.is_visible():
+                return True
+            vazio = self.page.get_by_text(rx_vazio)
+            if any(vazio.nth(i).is_visible() for i in range(min(vazio.count(), 5))):
+                log.info("O TMS não encontrou lançamentos para esses filtros.")
+                return False
+            self.page.wait_for_timeout(1000)
+        self.registrar_tela("resultado_pesquisa_indefinido")
+        raise ErroBot("Depois de pesquisar, não apareceu nem o botão ⋮ nem um aviso de 'nenhum registro'. "
+                      "Envie o .html salvo em logs/ para ajustar.")
 
     def exportar_excel(self, nome: str) -> Path:
         barra = self.sel["barra_processos"]
@@ -455,7 +474,8 @@ class BotTMS:
         return destino
 
     # --------------------------------------------------------------- completo
-    def executar(self, data_de: date, data_ate: date | None = None) -> Path:
+    def executar(self, data_de: date, data_ate: date | None = None) -> Path | None:
+        """Faz todo o fluxo. Retorna o Excel baixado, ou None se a pesquisa não teve resultados."""
         data_ate = data_ate or data_de
         self.abrir_e_logar()
         self.escolher_papel()
@@ -463,6 +483,8 @@ class BotTMS:
         nome = f"{data_de:%Y-%m-%d}" + ("" if data_de == data_ate else f"_a_{data_ate:%Y-%m-%d}")
         self.preencher_filtros(data_de, data_ate)
         self.print_conferencia(f"{nome}_1_filtros_preenchidos")
-        self.pesquisar()
+        tem_resultado = self.pesquisar()
         self.print_conferencia(f"{nome}_2_resultado_pesquisa")
+        if not tem_resultado:
+            return None
         return self.exportar_excel(nome)

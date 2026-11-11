@@ -203,6 +203,11 @@ def test_fluxo_completo_no_tms_falso(tmp_path, monkeypatch):
         destino = tmp_path / "consolidado.xlsx"
         assert alimentar_planilha(df, DestinoExcelLocal(destino), CHAVE) == (3, 0)
 
+        # dia sem lançamentos: pesquisa vazia não é erro
+        with navegador.BotTMS(cfg) as bot:
+            assert bot.executar(date(2026, 1, 1)) is None
+        assert (tmp_path / "conferencia" / "2026-01-01_2_resultado_pesquisa.png").exists()
+
         # 2ª execução: sessão salva no perfil, sem precisar de login
         monkeypatch.setattr(navegador.credenciais, "obter", lambda: ("", ""))
         with navegador.BotTMS(cfg) as bot:
