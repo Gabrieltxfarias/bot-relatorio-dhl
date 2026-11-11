@@ -312,30 +312,51 @@ class BotTMS:
         # Limpa seleções anteriores
         remover = bloco.locator(".select2-selection__choice__remove")
         while remover.count():
-            remover.first.click()
-            self.page.keyboard.press("Escape")
+            remover.first.click(force=True)
+            self._fechar_listas_select2()
         # 1) opções já carregadas no <select>: seleciona direto
         if bloco.evaluate(JS_SELECIONAR_POR_TEXTO, textos):
             self._esperar()
             return
-        # 2) busca digitando (select2 com AJAX, ex.: usuários)
+        # 2) busca digitando (select2 com opções carregadas sob demanda)
         rx_carregando = re.compile(r"(buscando|searching|carregando|loading|digite|please enter)", re.I)
         for texto in textos:
+            self._fechar_listas_select2()
             busca = bloco.locator(".select2-search__field").first
-            if not busca.count():  # select2 simples: abre e usa a busca do dropdown
-                bloco.locator(".select2-selection").first.click()
+            if busca.count():
+                busca.focus()  # foco direto: a lista aberta pode estar cobrindo a caixa
+            else:  # select2 simples: abre e usa a busca do dropdown
+                bloco.locator(".select2-selection").first.click(force=True)
                 busca = self.page.locator(".select2-container--open .select2-search__field").first
-            busca.click()
+                busca.focus()
+            busca.fill("")
             busca.press_sequentially(texto, delay=40)
             opcoes = self.page.locator(".select2-container--open .select2-results__option")
-            alvo = opcoes.filter(has_text=re.compile(re.escape(texto), re.I))
+            exata = opcoes.filter(has_text=re.compile(rf"^\s*{re.escape(texto)}\s*$", re.I))
+            contem = opcoes.filter(has_text=re.compile(re.escape(texto), re.I))
             try:
-                alvo.first.wait_for(state="visible", timeout=15000)
+                contem.first.wait_for(state="visible", timeout=15000)
             except PWTimeout:
                 vistos = [t for t in opcoes.all_inner_texts() if not rx_carregando.search(t)]
                 raise ErroBot(f"'{texto}' não apareceu na lista. Opções vistas: {vistos[:10]}")
-            alvo.first.click()
-            self._esperar()
+            alvo = exata.first if exata.count() else contem.first
+            if alvo.get_attribute("aria-selected") == "true":
+                log.info("'%s' já estava selecionado.", texto)
+            else:
+                alvo.click()
+                self._esperar()
+            busca.fill("")
+        self._fechar_listas_select2()
+
+    def _fechar_listas_select2(self) -> None:
+        """Fecha listas do select2 que ficam abertas depois de escolher uma opção."""
+        if self.page.locator(".select2-container--open").count():
+            self.page.keyboard.press("Escape")
+            self.page.wait_for_timeout(200)
+        if self.page.locator(".select2-container--open").count():
+            self.page.evaluate("() => { if (window.jQuery) jQuery('select').each(function () {"
+                               " try { if (jQuery(this).data('select2')) jQuery(this).select2('close'); }"
+                               " catch (e) {} }); }")
 
     def pesquisar(self) -> None:
         log.info("Pesquisando...")

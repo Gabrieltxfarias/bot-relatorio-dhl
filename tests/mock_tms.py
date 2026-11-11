@@ -171,8 +171,8 @@ class Handler(BaseHTTPRequestHandler):
 <div data-field="STATUSAPROVACAOFIN" data-label="Status Aprova&amp;#231;&amp;#227;o Financeira">
   <select name="{P}STATUSFIN" class="s2" multiple><option>Pendente</option><option>Aprovada</option></select></div>
 <div class="row"><label class="control-label">Status</label><div class="col">
-  <select name="{P}STATUS" class="s2" multiple>
-  {''.join(opt(v, t, v in filtro['status'] or (not form and v in ('10', '13'))) for v, t in status)}</select></div></div>
+  <select name="{P}STATUS" id="status" multiple>
+  {''.join(opt(v, t, True) for v, t in status if v in filtro['status'] or (not form and v in ('10', '13')))}</select></div></div>
 <div data-field="DATAINCLUSAODE" data-label="Data Inclus&amp;#227;o De" data-type="date"><div class="input-group">
   <input name="{P}DATAINCLUSAODE_DATE" id="{ID}DATAINCLUSAODE_DATE" value="{html.escape(filtro['de'])}" maxlength="10" class="form-control datepicker"></div></div>
 <div data-field="DATAINCLUSAOATE" data-label="Data Inclus&amp;#227;o At&amp;#233;" data-type="date"><div class="input-group">
@@ -187,6 +187,12 @@ class Handler(BaseHTTPRequestHandler):
 function __doPostBack(t, a) {{ var f = document.getElementById('aspnetForm');
   f.__EVENTTARGET.value = t; f.__EVENTARGUMENT.value = a; f.submit(); }}
 $('.s2').select2({{width: '300px'}});
+var STATUS = {[{"id": v, "text": t} for v, t in status]!r};
+$('#status').select2({{width: '300px', closeOnSelect: false,
+  ajax: {{ transport: function(params, ok) {{
+    var q = (params.data.term || '').toLowerCase();
+    setTimeout(function() {{ ok({{results: STATUS.filter(s => s.text.toLowerCase().includes(q))}}); }}, 300);
+  }} }} }});
 var USUARIOS = {USUARIOS!r};
 $('#usr').select2({{width: '300px', placeholder: 'Todos', minimumInputLength: 3,
   ajax: {{ delay: 300, transport: function(params, ok) {{
