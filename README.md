@@ -54,12 +54,19 @@ tarefa agendada e a última data processada. Ele mostra `[OK]`, `[AVISO]` ou `[F
 > `perfil_navegador/` e `.env` dão acesso à sua conta. Não compartilhe esses arquivos. Eles já estão no `.gitignore`.
 
 ## Planilha online (OneDrive/SharePoint)
-O bot grava no arquivo da **pasta sincronizada do OneDrive** no seu PC, e o OneDrive envia para a nuvem.
-1. No Explorer, localize a planilha. Ela precisa estar sincronizada; se aparecer o ícone de nuvem, clique
-   com o botão direito e escolha "Sempre manter neste dispositivo".
-2. Segure Shift, clique com o botão direito no arquivo e escolha **Copiar como caminho**.
-3. Cole o caminho em `planilha.arquivo` no `config.yaml`, trocando `\` por `/`.
-4. Se a planilha tiver mais de uma aba, informe o nome da aba em `planilha.aba`.
+Em `planilha.arquivo`, no `config.yaml`, coloque o **link da planilha no SharePoint**, copiado da barra de
+endereço do navegador. O bot procura sozinho a **cópia sincronizada** desse arquivo no PC e grava nela.
+O OneDrive então envia a alteração para a nuvem.
+
+**A biblioteca precisa estar sincronizada no PC. Faça isso uma vez:**
+1. Abra o link no navegador e vá até a pasta da planilha, na biblioteca "Documentos" do site.
+2. Clique em **Sincronizar** ou em **Adicionar atalho a Meus arquivos**.
+3. Confira se a pasta aparece no Explorer, dentro de "DHL" ou do "OneDrive - ...".
+4. Clique com o botão direito na planilha e escolha **Sempre manter neste dispositivo**.
+5. Rode `python verificar_ambiente.py`. Ele deve mostrar "Link do SharePoint encontrado sincronizado no PC".
+
+Também dá para colocar em `planilha.arquivo` o caminho local do arquivo. No Explorer, segure Shift, clique com o
+botão direito no arquivo e escolha "Copiar como caminho". Troque `\` por `/`.
 
 Proteções:
 - se a planilha estiver aberta no Excel do PC, o bot espera até 10 minutos para ela ser fechada;

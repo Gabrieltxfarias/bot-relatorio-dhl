@@ -40,11 +40,16 @@ def test_main_recupera_dias_e_depois_fica_em_dia(tmp_path, monkeypatch):
 
     exp = tmp_path / "exp.xlsx"
     exp.write_bytes(gerar_exportacao("10/11/2026"))
+    import yaml
+
+    cfg = yaml.safe_load(open(programa.RAIZ / "config.yaml", encoding="utf-8"))
+    cfg["planilha"]["arquivo"] = "saida/InclusaoServicosAcessorios.xlsx"
+    (tmp_path / "config.yaml").write_text(yaml.safe_dump(cfg, allow_unicode=True), encoding="utf-8")
     monkeypatch.setattr(programa, "RAIZ", tmp_path)
     Estado(tmp_path / "estado.json").registrar_sucesso(date.today() - __import__("datetime").timedelta(days=4))
 
     def rodar(*args):
-        monkeypatch.setattr("sys.argv", ["main.py", *args])
+        monkeypatch.setattr("sys.argv", ["main.py", "--config", str(tmp_path / "config.yaml"), *args])
         return programa.main()
 
     assert rodar("--arquivo", str(exp)) == 0                     # busca os 3 dias que faltavam
@@ -265,3 +270,51 @@ def test_espera_planilha_aberta_no_excel(tmp_path, monkeypatch):
     monkeypatch.setattr(planilha._time, "sleep", lambda s: None)
     assert alimentar_planilha(df, DestinoExcelLocal(arq), CHAVE) == (2, 0)
     assert tentativas["n"] == 2
+
+
+LINK = ("https://dpdhl.sharepoint.com/sites/DHL-AIR-GRU/Shared%20Documents/Processos%20-%20A%C3%A9reo%20Operacional/"
+        "Emiss%C3%A3o%20(LastMile,%20RPS,%20Minuta)/REPORT%20RPS%20TROCA%20DE%20GELO.xlsx?web=1")
+RESTO = ["Processos - Aéreo Operacional", "Emissão (LastMile, RPS, Minuta)", "REPORT RPS TROCA DE GELO.xlsx"]
+
+
+def test_link_sharepoint_partes():
+    from bot.caminho_planilha import partes_do_link
+
+    assert partes_do_link(LINK) == ("DHL-AIR-GRU", RESTO)
+    assert partes_do_link(LINK.replace("/sites/", "/:x:/r/sites/")) == ("DHL-AIR-GRU", RESTO)
+
+
+def _cria(caminho):
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    caminho.write_bytes(b"x")
+    return caminho
+
+
+def test_link_acha_biblioteca_sincronizada(tmp_path):
+    from bot.caminho_planilha import resolver_caminho_planilha
+
+    perfil = tmp_path / "Users" / "gabriel"
+    arq = _cria(perfil.joinpath("Deutsche Post DHL", "DHL-AIR-GRU - Documents", *RESTO))
+    (perfil / "OneDrive - Deutsche Post DHL").mkdir(parents=True)
+    amb = {"USERPROFILE": str(perfil), "OneDriveCommercial": str(perfil / "OneDrive - Deutsche Post DHL")}
+    assert resolver_caminho_planilha(LINK, tmp_path, amb) == arq
+
+
+def test_link_acha_atalho_no_onedrive(tmp_path):
+    from bot.caminho_planilha import resolver_caminho_planilha
+
+    perfil = tmp_path / "Users" / "gabriel"
+    od = perfil / "OneDrive - Deutsche Post DHL"
+    arq = _cria(od.joinpath(*RESTO[1:]))          # atalho para a pasta "Emissão (...)"
+    amb = {"USERPROFILE": str(perfil), "OneDriveCommercial": str(od)}
+    assert resolver_caminho_planilha(LINK, tmp_path, amb) == arq
+
+
+def test_link_nao_sincronizado_explica(tmp_path):
+    from bot.caminho_planilha import resolver_caminho_planilha
+    from bot.planilha import ErroPlanilha
+
+    perfil = tmp_path / "Users" / "gabriel"
+    perfil.mkdir(parents=True)
+    with pytest.raises(ErroPlanilha, match="Sincronizar"):
+        resolver_caminho_planilha(LINK, tmp_path, {"USERPROFILE": str(perfil)})

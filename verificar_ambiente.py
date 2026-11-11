@@ -154,15 +154,24 @@ def checar_rede(cfg: dict) -> None:
 def checar_planilha(cfg: dict) -> None:
     secao("Planilha (OneDrive)")
     p = cfg.get("planilha", {})
-    bruto = p.get("arquivo", "")
-    caminho = Path(os.path.expandvars(os.path.expanduser(bruto)))
-    dentro_do_projeto = not caminho.is_absolute()
-    if dentro_do_projeto:
-        caminho = RAIZ / caminho
-        aviso("planilha.arquivo aponta para dentro do projeto",
-              f"Hoje grava em {caminho}. Para a planilha online, cole o caminho do arquivo na pasta do OneDrive.")
-    if "onedrive" not in str(caminho).lower() and caminho.is_absolute() and str(RAIZ) not in str(caminho):
-        aviso("O caminho não parece ser do OneDrive", f"{caminho} — confira se é a pasta sincronizada.")
+    bruto = str(p.get("arquivo", ""))
+    dentro_do_projeto = False
+    try:
+        from bot.caminho_planilha import resolver_caminho_planilha
+
+        if bruto.lower().startswith("http"):
+            caminho = resolver_caminho_planilha(bruto, RAIZ)
+            ok("Link do SharePoint encontrado sincronizado no PC", str(caminho))
+        else:
+            caminho = Path(os.path.expandvars(os.path.expanduser(bruto)))
+            dentro_do_projeto = not caminho.is_absolute()
+            if dentro_do_projeto:
+                caminho = RAIZ / caminho
+                aviso("planilha.arquivo aponta para dentro do projeto",
+                      f"Hoje grava em {caminho}. Para a planilha online, coloque o link do SharePoint.")
+    except Exception as e:
+        falha("Planilha do SharePoint não encontrada no PC", str(e))
+        return
     if not caminho.parent.exists() and dentro_do_projeto:
         return  # a pasta dentro do projeto é criada pelo bot
     if not caminho.parent.exists():

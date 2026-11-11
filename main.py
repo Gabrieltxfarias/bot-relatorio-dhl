@@ -14,11 +14,11 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import sys
 import time
 from datetime import date, datetime
 
+from bot.caminho_planilha import resolver_caminho_planilha
 from bot.config import RAIZ, carregar_config
 from bot.periodo import Estado, Periodo, calcular_periodo
 from bot.planilha import DestinoExcelLocal, alimentar_planilha, filtrar_linhas, ler_exportacao
@@ -109,11 +109,8 @@ def processar(cfg: dict, periodo: Periodo, arquivo: str | None) -> tuple[int, in
     p = cfg["planilha"]
     for filtro in p.get("filtrar_linhas") or []:
         df = filtrar_linhas(df, filtro["coluna"], filtro["valores"])
-    caminho = os.path.expandvars(os.path.expanduser(p["arquivo"]))
-    if not os.path.isabs(caminho):  # caminho dentro do projeto (ex.: saida/): cria a pasta
-        (RAIZ / caminho).parent.mkdir(parents=True, exist_ok=True)
     destino = DestinoExcelLocal(
-        RAIZ / caminho,
+        resolver_caminho_planilha(p["arquivo"], RAIZ),
         p.get("aba") or "",
         pasta_backup=RAIZ / "backups",
         backups_mantidos=p.get("backups_mantidos", 30),

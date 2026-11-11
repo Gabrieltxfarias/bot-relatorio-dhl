@@ -55,16 +55,17 @@ rotulos:                     # usados só se status_campo/usuario_campo estivere
   status: "Status"
   usuario_solicitante: "Solicitante"
 
-planilha: "https://dpdhl.sharepoint.com/sites/DHL-AIR-GRU/Shared%20Documents/Processos%20-%20A%C3%A9reo%20Operacional/Emiss%C3%A3o%20(LastMile,%20RPS,%20Minuta)/REPORT%20RPS%20TROCA%20DE%20GELO.xlsx?web=1"
-  # Caminho da planilha online NA PASTA SINCRONIZADA DO ONEDRIVE no seu PC.
-  # O bot grava no arquivo e o OneDrive envia para a nuvem.
-  # Dica: no Explorer, Shift + botão direito no arquivo > "Copiar como caminho".
-  # Pode usar %OneDriveCommercial% (pasta do OneDrive corporativo), ex.:
-  #   arquivo: "%OneDriveCommercial%/Relatorios/InclusaoServicosAcessorios.xlsx"
-  # Use barras normais (/) ou duplique as invertidas (\\).
+planilha:
+  # Planilha online. Pode ser:
+  #  - o LINK do SharePoint/OneDrive (copiado do navegador ou de "Copiar link"):
+  #    o bot procura sozinho a cópia SINCRONIZADA desse arquivo no seu PC
+  #    (a biblioteca precisa estar sincronizada — ver README);
+  #  - ou o caminho do arquivo na pasta sincronizada, ex.:
+  #    "C:/Users/seu_usuario/DHL/DHL-AIR-GRU - Documents/.../REPORT RPS TROCA DE GELO.xlsx"
+  # O bot grava no arquivo local e o OneDrive envia para a nuvem.
   # A planilha fica com exatamente as colunas do relatório do TMS
   # (Viagem ... Usuário), mantendo datas/horas e números como tais.
-  arquivo: "saida/InclusaoServicosAcessorios.xlsx"
+  arquivo: "https://dpdhl.sharepoint.com/sites/DHL-AIR-GRU/Shared%20Documents/Processos%20-%20A%C3%A9reo%20Operacional/Emiss%C3%A3o%20(LastMile,%20RPS,%20Minuta)/REPORT%20RPS%20TROCA%20DE%20GELO.xlsx?web=1"
   aba: ""                    # vazio = primeira aba da planilha
   backups_mantidos: 30       # cópias de segurança em backups/ antes de cada gravação
   espera_arquivo_aberto_min: 10   # se a planilha estiver aberta no Excel do PC, espera até X min
