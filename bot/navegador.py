@@ -146,6 +146,22 @@ class BotTMS:
         except Exception:
             pass
 
+    def print_conferencia(self, nome: str) -> None:
+        """Print da tela em conferencia/ para você ver o que o bot preencheu."""
+        pasta = RAIZ / "conferencia"
+        pasta.mkdir(exist_ok=True)
+        caminho = pasta / f"{nome}.png"
+        try:
+            self._fechar_listas_select2()
+            self.page.screenshot(path=str(caminho), full_page=True)
+            log.info("Print para conferência: %s", caminho)
+        except Exception as e:
+            log.warning("Não consegui salvar o print %s: %s", caminho, e)
+        limite = time.time() - 60 * 86400  # mantém 60 dias
+        for velho in pasta.glob("*.png"):
+            if velho.stat().st_mtime < limite:
+                velho.unlink(missing_ok=True)
+
     # ------------------------------------------------------------ utilitários
     def _esperar(self) -> None:
         """Aguarda postbacks/carregamentos do ASP.NET."""
@@ -444,7 +460,9 @@ class BotTMS:
         self.abrir_e_logar()
         self.escolher_papel()
         self.abrir_tela()
-        self.preencher_filtros(data_de, data_ate)
-        self.pesquisar()
         nome = f"{data_de:%Y-%m-%d}" + ("" if data_de == data_ate else f"_a_{data_ate:%Y-%m-%d}")
+        self.preencher_filtros(data_de, data_ate)
+        self.print_conferencia(f"{nome}_1_filtros_preenchidos")
+        self.pesquisar()
+        self.print_conferencia(f"{nome}_2_resultado_pesquisa")
         return self.exportar_excel(nome)

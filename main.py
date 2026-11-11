@@ -17,8 +17,10 @@ import logging
 import sys
 import time
 from datetime import date, datetime, timedelta
+from pathlib import Path
 
 from bot.caminho_planilha import resolver_caminho_planilha
+from bot.conferencia import conferir_relatorio
 from bot.config import RAIZ, carregar_config
 from bot.periodo import Estado, Periodo, calcular_periodo
 from bot.planilha import DestinoExcelLocal, alimentar_planilha, filtrar_linhas, ler_exportacao
@@ -109,6 +111,9 @@ def processar(cfg: dict, periodo: Periodo, arquivo: str | None) -> tuple[int, in
             arquivo = bot.executar(periodo.de, periodo.ate)
 
     df = ler_exportacao(arquivo)
+    log = logging.getLogger("main")
+    log.info("Relatório do TMS: %s", Path(arquivo).resolve())
+    df = conferir_relatorio(df, cfg["filtros"], periodo.de, periodo.ate)
     p = cfg["planilha"]
     for filtro in p.get("filtrar_linhas") or []:
         df = filtrar_linhas(df, filtro["coluna"], filtro["valores"])

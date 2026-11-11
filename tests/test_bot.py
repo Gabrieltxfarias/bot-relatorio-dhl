@@ -189,6 +189,8 @@ def test_fluxo_completo_no_tms_falso(tmp_path, monkeypatch):
 
         with navegador.BotTMS(cfg) as bot:
             arquivo = bot.executar(date(2026, 11, 10))
+        assert (tmp_path / "conferencia" / "2026-11-10_1_filtros_preenchidos.png").exists()
+        assert (tmp_path / "conferencia" / "2026-11-10_2_resultado_pesquisa.png").exists()
 
         assert mock_tms.Estado.ultimo_filtro == {
             "tipo": "4",                      # Receita de Documento
@@ -356,3 +358,17 @@ def test_main_rodar_dia_de_hoje_nao_marca_como_concluido(tmp_path, monkeypatch):
     ontem = hoje - dt.timedelta(days=1)
     assert rodar("--de", ontem.strftime("%d/%m/%Y"), "--ate", hoje.strftime("%d/%m/%Y"), "--arquivo", str(exp)) == 0
     assert Estado(tmp_path / "estado.json").ultima_data_ok() == ontem     # só até ontem
+
+
+def test_conferencia_descarta_linhas_fora_do_filtro(tmp_path):
+    from bot.conferencia import conferir_relatorio
+
+    df = _exportacao(tmp_path, "10/11/2026")
+    df.loc[1, "Status Solicitação"] = "Reprovada"
+    df.loc[2, "Tipo Solicitação"] = "Receita de Viagem"
+    df.loc[3, "Inclusão"] = pd.Timestamp("2026-11-09 08:00:00")
+    filtros = {"tipo_solicitacao": "Receita de Documento", "status": ["Aguardando Aprovação", "Aprovada"]}
+    ok = conferir_relatorio(df, filtros, date(2026, 11, 10), date(2026, 11, 10))
+    assert len(ok) == 1
+    tudo_certo = conferir_relatorio(_exportacao(tmp_path, "10/11/2026"), filtros, date(2026, 11, 10), date(2026, 11, 10))
+    assert len(tudo_certo) == 4
