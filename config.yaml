@@ -55,7 +55,7 @@ rotulos:                     # usados só se status_campo/usuario_campo estivere
   status: "Status"
   usuario_solicitante: "Solicitante"
 
-planilha:
+planilha: "https://dpdhl.sharepoint.com/sites/DHL-AIR-GRU/Shared%20Documents/Processos%20-%20A%C3%A9reo%20Operacional/Emiss%C3%A3o%20(LastMile,%20RPS,%20Minuta)/REPORT%20RPS%20TROCA%20DE%20GELO.xlsx?web=1"
   # Caminho da planilha online NA PASTA SINCRONIZADA DO ONEDRIVE no seu PC.
   # O bot grava no arquivo e o OneDrive envia para a nuvem.
   # Dica: no Explorer, Shift + botão direito no arquivo > "Copiar como caminho".
