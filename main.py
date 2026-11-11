@@ -110,13 +110,17 @@ def processar(cfg: dict, periodo: Periodo, arquivo: str | None) -> tuple[int, in
         with BotTMS(cfg) as bot:
             arquivo = bot.executar(periodo.de, periodo.ate)
 
-    df = ler_exportacao(arquivo)
     log = logging.getLogger("main")
+    df = ler_exportacao(arquivo)
     log.info("Relatório do TMS: %s", Path(arquivo).resolve())
+    total = len(df)
     df = conferir_relatorio(df, cfg["filtros"], periodo.de, periodo.ate)
+    fora_filtros = total - len(df)
     p = cfg["planilha"]
+    antes_servico = len(df)
     for filtro in p.get("filtrar_linhas") or []:
         df = filtrar_linhas(df, filtro["coluna"], filtro["valores"])
+    outro_servico = antes_servico - len(df)
     destino = DestinoExcelLocal(
         resolver_caminho_planilha(p["arquivo"], RAIZ),
         p.get("aba") or "",
@@ -125,7 +129,24 @@ def processar(cfg: dict, periodo: Periodo, arquivo: str | None) -> tuple[int, in
         espera_arquivo_aberto_s=p.get("espera_arquivo_aberto_min", 10) * 60,
     )
     novas, atualizadas = alimentar_planilha(df, destino, p.get("colunas_chave"))
-    return len(df), novas, atualizadas
+    ja_existiam = len(df) - novas - atualizadas
+
+    log.info("-------- RESUMO %s --------", periodo)
+    log.info("Linhas no relatório do TMS ............ %d", total)
+    log.info("Descartadas (fora dos filtros) ........ %d", fora_filtros)
+    log.info("Descartadas (outro serviço) ........... %d", outro_servico)
+    log.info("Já estavam na planilha (ignoradas) .... %d", ja_existiam)
+    log.info("Atualizadas na planilha ............... %d", atualizadas)
+    log.info("NOVAS gravadas na planilha ............ %d", novas)
+    if total == 0:
+        log.info("Conclusão: o TMS não retornou lançamentos para o período. Nada a gravar.")
+    elif novas == 0 and atualizadas == 0 and ja_existiam > 0:
+        log.info("Conclusão: tudo o que veio do TMS JÁ ESTAVA na planilha. Nada foi alterado.")
+    elif novas == 0 and atualizadas == 0:
+        log.info("Conclusão: nenhuma linha do relatório era do serviço/filtros esperados. Nada a gravar.")
+    else:
+        log.info("Conclusão: planilha atualizada com %d nova(s) e %d atualizada(s).", novas, atualizadas)
+    return total, novas, atualizadas
 
 if __name__ == "__main__":
     sys.exit(main())

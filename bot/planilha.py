@@ -169,6 +169,9 @@ class Plano:
     cabecalho_mudou: bool
     novas: list[list] = field(default_factory=list)                 # linhas a acrescentar
     atualizacoes: dict[int, list] = field(default_factory=dict)     # nº da linha -> linha completa
+    ja_existiam: list[str] = field(default_factory=list)            # lançamentos iguais, ignorados
+    descr_novas: list[str] = field(default_factory=list)
+    descr_atualizadas: list[str] = field(default_factory=list)
 
 
 def _resolver_chave(desejadas: list[str], colunas: list[str]) -> list[str]:
@@ -188,6 +191,15 @@ def _resolver_chave(desejadas: list[str], colunas: list[str]) -> list[str]:
     if achadas:
         log.info("Identificando lançamentos por: %s", achadas)
     return achadas
+
+
+def _exibir(v) -> str:
+    v = valor_celula(v)
+    if v is None:
+        return "(vazio)"
+    if isinstance(v, datetime):
+        return v.strftime("%d/%m/%Y %H:%M:%S")
+    return str(v)
 
 
 def planejar_gravacao(
@@ -228,13 +240,21 @@ def planejar_gravacao(
     for _, reg in df.iterrows():
         nova = [valor_celula(reg[c]) if c in df.columns else None for c in cabecalho]
         chave = chave_linha(nova)
+        descricao = " | ".join(f"{c}: {_exibir(nova[idx[c]])}" for c in chave_cols[:3])
         if chave in existentes:
             n = existentes[chave]
+            if n < 0:  # repetida dentro do próprio relatório
+                plano.ja_existiam.append(descricao + " (repetida no relatório)")
+                continue
             atual = plano.atualizacoes.get(n, linhas_por_numero[n])
             if [chave_texto(v) for v in atual] != [chave_texto(v) for v in nova]:
                 plano.atualizacoes[n] = nova
+                plano.descr_atualizadas.append(f"{descricao} (linha {n} da planilha)")
+            else:
+                plano.ja_existiam.append(f"{descricao} (linha {n} da planilha)")
             continue
         plano.novas.append(nova)
+        plano.descr_novas.append(descricao)
         existentes[chave] = -len(plano.novas)  # evita duplicar dentro do mesmo relatório
     return plano
 
@@ -392,13 +412,27 @@ class DestinoExcelLocal:
 
 
 def alimentar_planilha(df: pd.DataFrame, destino, colunas_chave: list[str] | None = None) -> tuple[int, int]:
-    """Grava o relatório no destino. Retorna (linhas_novas, linhas_atualizadas)."""
+    """Grava o relatório no destino. Retorna (linhas_novas, linhas_atualizadas).
+
+    Registra no log, lançamento por lançamento, o que entrou, o que foi
+    atualizado e o que foi ignorado por já estar na planilha.
+    """
     if df.empty:
-        log.info("Relatório sem linhas — nada a gravar.")
+        log.info("Nada a gravar: nenhuma linha chegou até a etapa da planilha.")
         return 0, 0
     cabecalho, linhas = destino.ler()
     plano = planejar_gravacao(df, cabecalho, linhas, colunas_chave)
     if plano.novas or plano.atualizacoes or plano.cabecalho_mudou:
         destino.aplicar(plano)
-    log.info("Planilha %s: %d linha(s) nova(s), %d atualizada(s).", destino, len(plano.novas), len(plano.atualizacoes))
+    for d in plano.descr_novas:
+        log.info("  + nova: %s", d)
+    for d in plano.descr_atualizadas:
+        log.info("  ~ atualizada (algum valor mudou, ex.: status): %s", d)
+    for d in plano.ja_existiam:
+        log.info("  = já estava na planilha, ignorada: %s", d)
+    log.info("Planilha %s: %d nova(s), %d atualizada(s), %d já existiam (ignoradas).",
+             destino, len(plano.novas), len(plano.atualizacoes), len(plano.ja_existiam))
+    if not plano.novas and not plano.atualizacoes:
+        log.info("Nada foi alterado na planilha: todas as %d linha(s) do relatório já estavam lá, "
+                 "com os mesmos valores.", len(plano.ja_existiam))
     return len(plano.novas), len(plano.atualizacoes)
