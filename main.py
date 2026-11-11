@@ -16,7 +16,7 @@ import argparse
 import logging
 import sys
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from bot.caminho_planilha import resolver_caminho_planilha
 from bot.config import RAIZ, carregar_config
@@ -82,9 +82,12 @@ def main() -> int:
     for tentativa in range(1, tentativas + 1):
         try:
             lidas, novas, atualizadas = processar(cfg, periodo, args.arquivo)
-            # Só avança a "última data ok" se não deixar buraco para trás
-            if ultima_ok is None or periodo.de.toordinal() <= ultima_ok.toordinal() + 1:
-                estado.registrar_sucesso(periodo.ate)
+            # Atualiza a "última data ok" só com dias COMPLETOS (até ontem) e sem deixar
+            # buraco para trás. Ex.: testar com a data de hoje não marca hoje como feito.
+            concluido_ate = min(periodo.ate, date.today() - timedelta(days=1))
+            sem_buraco = ultima_ok is None or periodo.de <= ultima_ok + timedelta(days=1)
+            if concluido_ate >= periodo.de and sem_buraco:
+                estado.registrar_sucesso(concluido_ate)
             log.info("=== Fim | %s | %d linha(s) lida(s), %d nova(s), %d atualizada(s) ===",
                      periodo, lidas, novas, atualizadas)
             return 0

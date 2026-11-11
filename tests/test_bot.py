@@ -324,3 +324,34 @@ def test_link_nao_sincronizado_explica(tmp_path):
     perfil.mkdir(parents=True)
     with pytest.raises(ErroPlanilha, match="Sincronizar"):
         resolver_caminho_planilha(LINK, tmp_path, {"USERPROFILE": str(perfil)})
+
+
+def test_main_rodar_dia_de_hoje_nao_marca_como_concluido(tmp_path, monkeypatch):
+    import datetime as dt
+
+    from ruamel.yaml import YAML
+    from io import StringIO
+
+    import main as programa
+    from bot.config import ler_yaml
+    from tests.mock_tms import gerar_exportacao
+
+    cfg = ler_yaml(open(programa.RAIZ / "config.yaml", encoding="utf-8"))
+    cfg["planilha"]["arquivo"] = "saida/teste.xlsx"
+    buf = StringIO()
+    YAML(typ="safe", pure=True).dump(cfg, buf)
+    (tmp_path / "config.yaml").write_text(buf.getvalue(), encoding="utf-8")
+    exp = tmp_path / "exp.xlsx"
+    hoje = dt.date.today()
+    exp.write_bytes(gerar_exportacao(hoje.strftime("%d/%m/%Y")))
+    monkeypatch.setattr(programa, "RAIZ", tmp_path)
+
+    def rodar(*args):
+        monkeypatch.setattr("sys.argv", ["main.py", "--config", str(tmp_path / "config.yaml"), *args])
+        return programa.main()
+
+    assert rodar("--data", hoje.strftime("%d/%m/%Y"), "--arquivo", str(exp)) == 0
+    assert Estado(tmp_path / "estado.json").ultima_data_ok() is None      # hoje ainda não acabou
+    ontem = hoje - dt.timedelta(days=1)
+    assert rodar("--de", ontem.strftime("%d/%m/%Y"), "--ate", hoje.strftime("%d/%m/%Y"), "--arquivo", str(exp)) == 0
+    assert Estado(tmp_path / "estado.json").ultima_data_ok() == ontem     # só até ontem
