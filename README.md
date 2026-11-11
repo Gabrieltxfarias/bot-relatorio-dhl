@@ -14,12 +14,25 @@ Este bot faz o seguinte:
    já gravada vier de novo com outro status, o bot atualiza a linha em vez de duplicar.
 
 ## Instalação (uma vez, no PC com acesso ao TMS)
+**Pré-requisito: Python 3.10 ou mais novo.** Para conferir, abra o Prompt de Comando e digite `python --version`.
+Se não aparecer a versão, instale pelo [python.org](https://www.python.org/downloads/) e marque **"Add python.exe to PATH"**.
+Sem permissão de administrador, peça à TI ou use o Python da Microsoft Store.
+
+Na pasta do projeto:
 ```bat
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 playwright install msedge
 ```
+
+### Verificar se o PC está pronto
+```bat
+.venv\Scripts\activate
+python verificar_ambiente.py
+```
+O script confere Python, bibliotecas, navegador, credenciais, acesso ao TMS (VPN), planilha do OneDrive,
+tarefa agendada e a última data processada. Ele mostra `[OK]`, `[AVISO]` ou `[FALHA]`, e para cada problema diz como resolver.
 
 ## Login sem passar sua senha para ninguém
 - **Opção A (recomendada):** rode `python salvar_credenciais.py`. O script pede o usuário e a senha
