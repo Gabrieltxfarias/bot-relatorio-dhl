@@ -36,16 +36,24 @@ JS_ACHAR_CAMPO = """(rotulo) => {
   }
   if (exato) return marcar(exato);
 
-  // 2) pelo texto EXATO do rótulo na tela: o 1º <select> que vem depois dele
-  const rotulos = [...document.querySelectorAll('label, span, td, th, div, b, strong')].filter(el => {
-    const proprio = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ');
-    return norm(proprio) === alvo && el.offsetParent !== null;
-  });
-  for (const r of rotulos) {
+  // 2) pelo texto do rótulo na tela (exato; depois contendo): o 1º campo que vem depois dele
+  const textoProprio = el => norm([...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' '));
+  const candidatos = [...document.querySelectorAll('label, span, td, th, div, b, strong')]
+    .filter(el => el.offsetParent !== null && textoProprio(el));
+  const ehCampo = el => el.tagName === 'SELECT' || (el.classList && el.classList.contains('select2-container'))
+    || (el.tagName === 'INPUT' && el.classList.contains('select2-offscreen'));
+  const depois = r => {
     const w = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
     w.currentNode = r;
     for (let i = 0, el; i < 300 && (el = w.nextNode()); i++) {
-      if (el.tagName === 'SELECT') return marcar(el.parentElement);
+      if (ehCampo(el)) return el.parentElement;
+    }
+    return null;
+  };
+  for (const teste of [t => t === alvo, t => t.includes(alvo)]) {
+    for (const r of candidatos.filter(el => teste(textoProprio(el)))) {
+      const bloco = depois(r);
+      if (bloco) return marcar(bloco);
     }
   }
   // 3) por último, nome parcial (ex.: "Solicitante" -> "Usuário Solicitante")

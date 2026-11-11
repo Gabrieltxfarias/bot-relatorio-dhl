@@ -177,8 +177,8 @@ class Handler(BaseHTTPRequestHandler):
   <input name="{P}DATAINCLUSAODE_DATE" id="{ID}DATAINCLUSAODE_DATE" value="{html.escape(filtro['de'])}" maxlength="10" class="form-control datepicker"></div></div>
 <div data-field="DATAINCLUSAOATE" data-label="Data Inclus&amp;#227;o At&amp;#233;" data-type="date"><div class="input-group">
   <input name="{P}DATAINCLUSAOATE_DATE" id="{ID}DATAINCLUSAOATE_DATE" value="{html.escape(filtro['ate'])}" maxlength="10" class="form-control datepicker"></div></div>
-<div data-field="USUARIOSOLICITANTE" data-label="Usu&amp;#225;rio Solicitante">
-  <select name="{P}USUARIOSOLICITANTE" id="usr" multiple>{users_sel}</select></div>
+<div class="row"><label class="control-label">Usuário Solicitante</label><div class="col">
+  <select name="{P}USUARIOSOLICITANTE" id="usr" multiple>{users_sel}</select></div></div>
 <a id="ctl00_Main_K_INCLUSODESERVIOSACESSRIOS_FilterControl_FilterButton" title="Filtrar" class="btn btn-primary filter-button"
    href="javascript:__doPostBack('ctl00$Main$K_INCLUSODESERVIOSACESSRIOS$FilterControl$FilterButton','')">🔍</a>
 {grid}

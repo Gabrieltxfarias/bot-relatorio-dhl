@@ -181,6 +181,7 @@ def test_fluxo_completo_no_tms_falso(tmp_path, monkeypatch):
             u = urlparse(url)
             cfg["urls"][chave] = f"{base}{u.path}" + (f"?{u.query}" if u.query else "")
         cfg["urls"]["inicial"] = f"{base}/novidades.aspx"
+        cfg["rotulos"]["usuario_solicitante"] = "Solicitante"   # rótulo parcial também deve funcionar
         cfg["navegador"].update(headless=True, canal="", executavel=os.getenv("PW_EXECUTAVEL", ""),
                                 pasta_perfil=str(tmp_path / "perfil"), timeout_login_s=30, timeout_relatorio_s=30)
         monkeypatch.setattr(navegador, "RAIZ", tmp_path)

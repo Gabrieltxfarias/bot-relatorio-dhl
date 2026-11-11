@@ -53,7 +53,7 @@ seletores:
 
 rotulos:                     # usados só se status_campo/usuario_campo estiverem vazios
   status: "Status"
-  usuario_solicitante: "Solicitante"
+  usuario_solicitante: "Usuário Solicitante"
 
 planilha:
   # Planilha online. Pode ser:
