@@ -121,6 +121,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._redirect("/novidades.aspx", "sessao=ok")
             return self._html(LOGIN + "<p>Credenciais inválidas</p>")
         if u.path == URL_GRID and self._cookie("sessao") == "ok":
+            if form.get("__EVENTTARGET", [""])[0].endswith("TIPOSOLICITACAO"):
+                time.sleep(1.5)
             return self._grid(form)
         self._enviar(b"erro", status=400)
 
@@ -163,13 +165,14 @@ class Handler(BaseHTTPRequestHandler):
 <form method="post" id="aspnetForm">
 <input type="hidden" name="__EVENTTARGET"><input type="hidden" name="__EVENTARGUMENT">
 <div data-field="TIPOSOLICITACAO" data-label="Tipo de Solicita&amp;#231;&amp;#227;o">
-  <select name="{P}TIPOSOLICITACAOselect" id="{ID}TIPOSOLICITACAOselect" class="form-control">
+  <select name="{P}TIPOSOLICITACAOselect" id="{ID}TIPOSOLICITACAOselect" class="form-control"
+    onchange="__doPostBack('ctl00$Main$K_INCLUSODESERVIOSACESSRIOS$FilterControl$GERAL$TIPOSOLICITACAO','')">
   {''.join(opt(v, t, v == filtro['tipo']) for v, t in tipos)}</select></div>
 <div data-field="STATUSAPROVACAOFIN" data-label="Status Aprova&amp;#231;&amp;#227;o Financeira">
   <select name="{P}STATUSFIN" class="s2" multiple><option>Pendente</option><option>Aprovada</option></select></div>
-<div data-field="STATUS" data-label="Status">
+<div class="row"><label class="control-label">Status</label><div class="col">
   <select name="{P}STATUS" class="s2" multiple>
-  {''.join(opt(v, t, v in filtro['status'] or (not form and v in ('10', '13'))) for v, t in status)}</select></div>
+  {''.join(opt(v, t, v in filtro['status'] or (not form and v in ('10', '13'))) for v, t in status)}</select></div></div>
 <div data-field="DATAINCLUSAODE" data-label="Data Inclus&amp;#227;o De" data-type="date"><div class="input-group">
   <input name="{P}DATAINCLUSAODE_DATE" id="{ID}DATAINCLUSAODE_DATE" value="{html.escape(filtro['de'])}" maxlength="10" class="form-control datepicker"></div></div>
 <div data-field="DATAINCLUSAOATE" data-label="Data Inclus&amp;#227;o At&amp;#233;" data-type="date"><div class="input-group">

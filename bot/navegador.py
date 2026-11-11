@@ -20,8 +20,13 @@ log = logging.getLogger(__name__)
 # decodificamos duas vezes e comparamos sem acentos/maiúsculas.
 JS_ACHAR_CAMPO = """(rotulo) => {
   const dec = s => { const t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
-  const norm = s => dec(dec(s || '')).normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim();
+  const norm = s => dec(dec(s || '')).normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+                      .replace(/[:*]/g, '').toLowerCase().replace(/\\s+/g, ' ').trim();
   const alvo = norm(rotulo);
+  const marca = 'campo-' + alvo.replace(/[^a-z0-9]+/g, '-');
+  const marcar = el => { el.setAttribute('data-bot-campo', marca); return marca; };
+
+  // 1) blocos <div data-field=... data-label=...> do Benner
   let exato = null, parcial = null;
   for (const d of document.querySelectorAll('[data-field]')) {
     if (!d.querySelector('select, .select2')) continue;
@@ -29,8 +34,22 @@ JS_ACHAR_CAMPO = """(rotulo) => {
     if (nomes.includes(alvo)) { exato = exato || d; }
     else if (nomes.some(n => n.includes(alvo))) { parcial = parcial || d; }
   }
-  const d = exato || parcial;
-  return d ? d.getAttribute('data-field') : null;
+  if (exato) return marcar(exato);
+
+  // 2) pelo texto EXATO do rótulo na tela: o 1º <select> que vem depois dele
+  const rotulos = [...document.querySelectorAll('label, span, td, th, div, b, strong')].filter(el => {
+    const proprio = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ');
+    return norm(proprio) === alvo && el.offsetParent !== null;
+  });
+  for (const r of rotulos) {
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
+    w.currentNode = r;
+    for (let i = 0, el; i < 300 && (el = w.nextNode()); i++) {
+      if (el.tagName === 'SELECT') return marcar(el.parentElement);
+    }
+  }
+  // 3) por último, nome parcial (ex.: "Solicitante" -> "Usuário Solicitante")
+  return parcial ? marcar(parcial) : null;
 }"""
 
 # Seleciona opções de um <select> (select2) pelo texto, se todas existirem nele.
@@ -235,12 +254,28 @@ class BotTMS:
         log.info("Filtros: %s | %s | %s a %s | %s", f["tipo_solicitacao"], f["status"],
                  de_txt, ate_txt, f["usuario_solicitante"])
 
-        self._el("tipo_solicitacao").select_option(label=f["tipo_solicitacao"])
-        self._esperar()
+        self._selecionar_com_postback("tipo_solicitacao", f["tipo_solicitacao"])
         self._select2("status_campo", "status", list(f["status"]))
         self._data("data_de", de_txt)
         self._data("data_ate", ate_txt)
         self._select2("usuario_campo", "usuario_solicitante", [f["usuario_solicitante"]])
+
+    def _selecionar_com_postback(self, chave: str, texto: str) -> None:
+        """Seleciona uma opção num <select> que pode recarregar a página (AutoPostBack)."""
+        for _ in range(2):
+            campo = self._el(chave)
+            try:
+                with self.page.expect_navigation(timeout=6000, wait_until="domcontentloaded"):
+                    campo.select_option(label=texto)
+                log.info("A tela recarregou após escolher '%s'.", texto)
+            except PWTimeout:
+                pass  # não recarregou
+            self._esperar()
+            self._el("botao_pesquisar")  # tela pronta de novo
+            atual = self._el(chave).evaluate("e => e.options[e.selectedIndex] && e.options[e.selectedIndex].text")
+            if (atual or "").strip().lower() == texto.strip().lower():
+                return
+        raise ErroBot(f"Não consegui manter '{texto}' selecionado em {chave} (ficou '{atual}').")
 
     def _data(self, chave: str, texto: str) -> None:
         campo = self._el(chave)
@@ -254,11 +289,22 @@ class BotTMS:
         if self.sel.get(chave_sel):
             return self._el(chave_sel)
         rotulo = self.cfg["rotulos"][chave_rotulo]
-        campo = self.page.evaluate(JS_ACHAR_CAMPO, rotulo)
-        if not campo:
+        fim = time.time() + 20  # a tela pode estar recarregando (postback)
+        marca = None
+        while time.time() < fim:
+            try:
+                marca = self.page.evaluate(JS_ACHAR_CAMPO, rotulo)
+            except Exception:  # contexto destruído no meio de um recarregamento
+                marca = None
+            if marca:
+                break
+            self.page.wait_for_timeout(1000)
+        if not marca:
+            self.registrar_tela(f"campo_{chave_rotulo}_nao_encontrado")
             raise ErroBot(f"Campo '{rotulo}' não encontrado. Preencha seletores.{chave_sel} no config.yaml.")
-        log.info("Campo '%s' encontrado: data-field=%s", rotulo, campo)
-        return self.page.locator(f"[data-field='{campo}']").first
+        bloco = self.page.locator(f"[data-bot-campo='{marca}']").first
+        log.info("Campo '%s' encontrado.", rotulo)
+        return bloco
 
     def _select2(self, chave_sel: str, chave_rotulo: str, textos: list[str]) -> None:
         """Preenche um campo select2 (múltipla escolha ou com busca)."""
