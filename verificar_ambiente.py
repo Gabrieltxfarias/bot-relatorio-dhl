@@ -50,6 +50,10 @@ def checar_python() -> None:
         ok("Versão do Python", f"{v.major}.{v.minor}.{v.micro}")
     else:
         falha(f"Python {v.major}.{v.minor} é antigo", "Instale o Python 3.12 em python.org (marque 'Add python.exe to PATH').")
+    if "onedrive" in str(RAIZ).lower():
+        aviso("O projeto está dentro do OneDrive",
+              "Mova a pasta do projeto para fora (ex.: C:\\Users\\<usuario>\\BotRPS). Senão o OneDrive vai "
+              "sincronizar o .venv (milhares de arquivos) e a sessão de login do navegador (perfil_navegador) para a nuvem.")
     if sys.prefix != getattr(sys, "base_prefix", sys.prefix):
         ok("Ambiente virtual (.venv) ativo")
     else:
@@ -60,7 +64,7 @@ def checar_python() -> None:
 def checar_pacotes() -> bool:
     secao("Bibliotecas")
     pacotes = {"playwright": "playwright", "pandas": "pandas", "openpyxl": "openpyxl", "lxml": "lxml",
-               "yaml": "pyyaml", "dotenv": "python-dotenv", "keyring": "keyring"}
+               "ruamel.yaml": "ruamel.yaml", "dotenv": "python-dotenv", "keyring": "keyring"}
     faltando = []
     for modulo, nome in pacotes.items():
         try:

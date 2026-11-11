@@ -18,6 +18,9 @@ Este bot faz o seguinte:
 Se não aparecer a versão, instale pelo [python.org](https://www.python.org/downloads/) e marque **"Add python.exe to PATH"**.
 Sem permissão de administrador, peça à TI ou use o Python da Microsoft Store.
 
+**Deixe o projeto fora do OneDrive**, por exemplo em `C:\Users\<seu_usuario>\BotRPS`. Dentro do OneDrive, ele
+sincronizaria o `.venv` (milhares de arquivos) e a sessão de login do navegador para a nuvem.
+
 Na pasta do projeto:
 ```bat
 python -m venv .venv
@@ -125,4 +128,4 @@ Outros comandos: `-Testar` roda a tarefa agora, `-Horario 06:30` muda o horário
 A tarefa roda na sua sessão do Windows, que é o que o OneDrive precisa para sincronizar. O PC pode estar com a tela bloqueada.
 
 ## Testes
-`pytest` roda os testes contra um TMS falso local (`tests/mock_tms.py`).
+`pip install -r requirements-dev.txt` instala o pytest, e `pytest` roda os testes contra um TMS falso local (`tests/mock_tms.py`).

@@ -40,11 +40,17 @@ def test_main_recupera_dias_e_depois_fica_em_dia(tmp_path, monkeypatch):
 
     exp = tmp_path / "exp.xlsx"
     exp.write_bytes(gerar_exportacao("10/11/2026"))
-    import yaml
+    from io import StringIO
 
-    cfg = yaml.safe_load(open(programa.RAIZ / "config.yaml", encoding="utf-8"))
+    from ruamel.yaml import YAML
+
+    from bot.config import ler_yaml
+
+    cfg = ler_yaml(open(programa.RAIZ / "config.yaml", encoding="utf-8"))
     cfg["planilha"]["arquivo"] = "saida/InclusaoServicosAcessorios.xlsx"
-    (tmp_path / "config.yaml").write_text(yaml.safe_dump(cfg, allow_unicode=True), encoding="utf-8")
+    saida = StringIO()
+    YAML(typ="safe", pure=True).dump(cfg, saida)
+    (tmp_path / "config.yaml").write_text(saida.getvalue(), encoding="utf-8")
     monkeypatch.setattr(programa, "RAIZ", tmp_path)
     Estado(tmp_path / "estado.json").registrar_sucesso(date.today() - __import__("datetime").timedelta(days=4))
 
