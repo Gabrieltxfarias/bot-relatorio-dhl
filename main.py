@@ -1,9 +1,14 @@
 """Bot de extração do relatório de Serviços Acessórios (TMS DHL).
 
 Uso:
-    python main.py                      # dia anterior
-    python main.py --data 10/11/2026    # data específica
-    python main.py --arquivo rel.xlsx   # só alimenta a planilha com um arquivo já baixado
+    python main.py                               # tudo que falta até ontem (recupera dias perdidos)
+    python main.py --data 10/11/2026             # um dia específico
+    python main.py --de 01/11/2026 --ate 10/11/2026   # período específico
+    python main.py --arquivo rel.xlsx            # só alimenta a planilha com um arquivo já baixado
+
+Sem datas, o bot lembra a última data processada com sucesso (estado.json) e
+busca de uma vez todos os dias que faltam até ontem. Se já estiver em dia,
+encerra sem abrir o navegador.
 """
 from __future__ import annotations
 
@@ -11,9 +16,11 @@ import argparse
 import logging
 import os
 import sys
-from datetime import datetime
+import time
+from datetime import date, datetime
 
-from bot.config import RAIZ, carregar_config, data_referencia
+from bot.config import RAIZ, carregar_config
+from bot.periodo import Estado, Periodo, calcular_periodo
 from bot.planilha import DestinoExcelLocal, alimentar_planilha, filtrar_linhas, ler_exportacao
 
 
@@ -29,9 +36,15 @@ def configurar_log() -> None:
     )
 
 
+def _data(txt: str) -> date:
+    return datetime.strptime(txt, "%d/%m/%Y").date()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", help="Data de referência dd/mm/aaaa (padrão: dia anterior)")
+    ap.add_argument("--data", help="Um dia específico dd/mm/aaaa")
+    ap.add_argument("--de", help="Início de um período específico dd/mm/aaaa")
+    ap.add_argument("--ate", help="Fim de um período específico dd/mm/aaaa")
     ap.add_argument("--arquivo", help="Pula o navegador e usa um arquivo já exportado")
     ap.add_argument("--config", help="Caminho alternativo do config.yaml")
     ap.add_argument("--headless", action="store_true", help="Roda sem abrir janela")
@@ -43,43 +56,71 @@ def main() -> int:
     if args.headless:
         cfg["navegador"]["headless"] = True
 
-    data_ref = (
-        datetime.strptime(args.data, "%d/%m/%Y").date()
-        if args.data
-        else data_referencia(cfg["filtros"].get("dias_atras", 1))
+    estado = Estado(RAIZ / "estado.json")
+    ultima_ok = estado.ultima_data_ok()
+    manual = bool(args.data or args.de or args.ate)
+    if args.data:
+        periodo = Periodo(_data(args.data), _data(args.data))
+    elif args.de or args.ate:
+        if not (args.de and args.ate):
+            ap.error("Use --de e --ate juntos.")
+        periodo = Periodo(_data(args.de), _data(args.ate))
+        if periodo.de > periodo.ate:
+            ap.error("--de não pode ser depois de --ate.")
+    else:
+        periodo = calcular_periodo(ultima_ok, max_dias=cfg["filtros"].get("max_dias_recuperacao", 31))
+        if periodo is None:
+            log.info("Nada a fazer: dados já processados até %s.", ultima_ok.strftime("%d/%m/%Y"))
+            return 0
+
+    log.info("=== Início | período %s ===", periodo)
+    if ultima_ok and not manual and periodo.dias > 1:
+        log.info("Recuperando dias perdidos desde a última execução (%s).", ultima_ok.strftime("%d/%m/%Y"))
+
+    tentativas = 1 if args.arquivo else max(1, cfg.get("execucao", {}).get("tentativas", 3))
+    intervalo_min = cfg.get("execucao", {}).get("intervalo_tentativas_min", 20)
+    for tentativa in range(1, tentativas + 1):
+        try:
+            lidas, novas, atualizadas = processar(cfg, periodo, args.arquivo)
+            # Só avança a "última data ok" se não deixar buraco para trás
+            if ultima_ok is None or periodo.de.toordinal() <= ultima_ok.toordinal() + 1:
+                estado.registrar_sucesso(periodo.ate)
+            log.info("=== Fim | %s | %d linha(s) lida(s), %d nova(s), %d atualizada(s) ===",
+                     periodo, lidas, novas, atualizadas)
+            return 0
+        except Exception:
+            log.exception("Falha na tentativa %d de %d", tentativa, tentativas)
+            if tentativa < tentativas:
+                log.info("Nova tentativa em %d min (ex.: VPN ainda conectando).", intervalo_min)
+                time.sleep(intervalo_min * 60)
+    log.error("Todas as tentativas falharam. O período %s será buscado de novo na próxima execução.", periodo)
+    return 1
+
+
+def processar(cfg: dict, periodo: Periodo, arquivo: str | None) -> tuple[int, int, int]:
+    """Extrai (ou usa o arquivo dado), filtra e grava na planilha."""
+    if not arquivo:
+        from bot.navegador import BotTMS
+
+        with BotTMS(cfg) as bot:
+            arquivo = bot.executar(periodo.de, periodo.ate)
+
+    df = ler_exportacao(arquivo)
+    p = cfg["planilha"]
+    for filtro in p.get("filtrar_linhas") or []:
+        df = filtrar_linhas(df, filtro["coluna"], filtro["valores"])
+    caminho = os.path.expandvars(os.path.expanduser(p["arquivo"]))
+    if not os.path.isabs(caminho):  # caminho dentro do projeto (ex.: saida/): cria a pasta
+        (RAIZ / caminho).parent.mkdir(parents=True, exist_ok=True)
+    destino = DestinoExcelLocal(
+        RAIZ / caminho,
+        p.get("aba") or "",
+        pasta_backup=RAIZ / "backups",
+        backups_mantidos=p.get("backups_mantidos", 30),
+        espera_arquivo_aberto_s=p.get("espera_arquivo_aberto_min", 10) * 60,
     )
-    log.info("=== Início | data de referência %s ===", data_ref.strftime("%d/%m/%Y"))
-
-    try:
-        if args.arquivo:
-            arquivo = args.arquivo
-        else:
-            from bot.navegador import BotTMS
-
-            with BotTMS(cfg) as bot:
-                arquivo = bot.executar(data_ref)
-
-        df = ler_exportacao(arquivo)
-        p = cfg["planilha"]
-        for filtro in p.get("filtrar_linhas") or []:
-            df = filtrar_linhas(df, filtro["coluna"], filtro["valores"])
-        caminho = os.path.expandvars(os.path.expanduser(p["arquivo"]))
-        if not os.path.isabs(caminho):  # caminho dentro do projeto (ex.: saida/): cria a pasta
-            (RAIZ / caminho).parent.mkdir(parents=True, exist_ok=True)
-        destino = DestinoExcelLocal(
-            RAIZ / caminho,
-            p.get("aba") or "",
-            pasta_backup=RAIZ / "backups",
-            backups_mantidos=p.get("backups_mantidos", 30),
-            espera_arquivo_aberto_s=p.get("espera_arquivo_aberto_min", 10) * 60,
-        )
-        novas, atualizadas = alimentar_planilha(df, destino, p.get("colunas_chave"))
-        log.info("=== Fim | %d linha(s) lida(s), %d nova(s), %d atualizada(s) ===", len(df), novas, atualizadas)
-        return 0
-    except Exception:
-        log.exception("Falha na execução")
-        return 1
-
+    novas, atualizadas = alimentar_planilha(df, destino, p.get("colunas_chave"))
+    return len(df), novas, atualizadas
 
 if __name__ == "__main__":
     sys.exit(main())

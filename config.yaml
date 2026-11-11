@@ -9,6 +9,10 @@ urls:
   papel: "https://tmsbr.dhl.com/Roles/Select/K_ANALISTASERVICOSACESSORIOS"
   tela: "https://tmsbr.dhl.com/cli/tms/operacional/pages/a/ServicosAcessorios/InclusaoServicos/Grid.aspx?i=K_INCLUSAO_SERVICOS_ACESSORIOS&m=MAIN"
 
+execucao:
+  tentativas: 3                # se falhar (VPN desconectada, TMS fora do ar...), tenta de novo
+  intervalo_tentativas_min: 20
+
 papel_nome: "Analista de Serviços Acessórios"   # texto conferido no cabeçalho após trocar o papel
 
 navegador:
@@ -26,7 +30,9 @@ filtros:
     - "Aguardando Aprovação"
     - "Aprovada"
   usuario_solicitante: "Gabriel Teixeira de Farias"
-  dias_atras: 1              # 1 = dia anterior (data "de" = data "até")
+  # Período: normalmente o dia anterior. Se o PC ficou desligado, o bot busca
+  # de uma vez todos os dias que faltaram (lembra a última data em estado.json).
+  max_dias_recuperacao: 31   # limite de dias recuperados numa única execução
   formato_data: "%d/%m/%Y"
 
 seletores:

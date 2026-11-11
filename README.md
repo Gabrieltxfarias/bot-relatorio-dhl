@@ -50,11 +50,20 @@ Proteções:
 
 ## Uso
 ```bat
-python main.py                      :: dia anterior
-python main.py --data 10/11/2026    :: data específica
-python main.py --arquivo rel.xls    :: só alimenta a planilha com um arquivo já baixado
+python main.py                                   :: tudo que falta até ontem (padrão)
+python main.py --data 10/11/2026                 :: um dia específico
+python main.py --de 01/11/2026 --ate 10/11/2026  :: um período específico
+python main.py --arquivo rel.xlsx                :: só alimenta a planilha com um arquivo já baixado
 ```
-Os logs ficam em `logs/`. Em caso de erro, o bot salva um screenshot da tela no mesmo lugar.
+Os logs ficam em `logs/`. Em caso de erro, o bot salva um print e o HTML da tela no mesmo lugar.
+
+### Recuperação de dias perdidos
+O bot guarda em `estado.json` a última data processada com sucesso. Sem datas na linha de comando, ele busca
+**de uma vez todo o período que falta até ontem**. Por exemplo, se o PC ficou desligado no fim de semana, a
+execução de segunda traz sexta, sábado e domingo. Se já estiver em dia, o bot encerra em segundos, sem abrir o navegador.
+- Se uma execução falhar, por exemplo com a VPN desconectada, o bot tenta de novo 3 vezes, com 20 minutos de intervalo
+  (`execucao` no `config.yaml`). Se ainda assim falhar, o período fica pendente para a próxima execução.
+- Uma execução recupera no máximo 31 dias (`filtros.max_dias_recuperacao`). Para períodos maiores, use `--de`/`--ate`.
 
 ## Como o bot navega
 - O papel é escolhido abrindo direto `Roles/Select/K_ANALISTASERVICOSACESSORIOS`, e a tela pelo link do `Grid.aspx`.
@@ -72,9 +81,19 @@ O bot salva em `logs/` um **print e o HTML** da tela no momento do erro. Os pont
 - `seletores.status_campo` / `seletores.usuario_campo`: o data-field exato, por exemplo `div[data-field='STATUS']`;
 - `seletores.processo_concluido`: o marcador de item pronto na barra de processos (padrão: `.process-success`).
 
-## Agendar todo dia
-No Agendador de Tarefas do Windows, crie uma tarefa diária que execute `executar_bot.bat`,
-com "Iniciar em" apontando para a pasta do projeto. O PC precisa estar ligado, na VPN e com o usuário logado.
+## Agendar todo dia (0h01)
+No PowerShell, dentro da pasta do projeto (não precisa ser administrador):
+```bat
+powershell -ExecutionPolicy Bypass -File .\agendar_tarefa.ps1
+```
+A tarefa criada:
+- roda **todo dia às 0h01**;
+- se o PC estava **desligado** nesse horário, roda **assim que ele for ligado**;
+- tenta **acordar o PC da suspensão**. Para isso, ative "Permitir temporizadores de ativação" nas Opções de Energia;
+- roda também 5 minutos depois que você entra no Windows, como reforço. Se já estiver em dia, não faz nada.
+
+Outros comandos: `-Testar` roda a tarefa agora, `-Horario 06:30` muda o horário e `-Remover` apaga a tarefa.
+A tarefa roda na sua sessão do Windows, que é o que o OneDrive precisa para sincronizar. O PC pode estar com a tela bloqueada.
 
 ## Testes
 `pytest` roda os testes contra um TMS falso local (`tests/mock_tms.py`).

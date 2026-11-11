@@ -6,13 +6,54 @@ import pandas as pd
 import pytest
 from openpyxl import load_workbook
 
-from bot.config import carregar_config, data_referencia
+from bot.config import carregar_config
+from bot.periodo import Estado, Periodo, calcular_periodo
 from bot.planilha import DestinoExcelLocal, alimentar_planilha, filtrar_linhas, ler_exportacao
 
 
-def test_data_referencia_dia_anterior():
-    assert data_referencia(1, date(2026, 11, 11)) == date(2026, 11, 10)
-    assert data_referencia(1, date(2026, 1, 1)) == date(2025, 12, 31)
+def test_periodo_normal_e_dia_anterior():
+    hoje = date(2026, 11, 11)
+    assert calcular_periodo(None, hoje) == Periodo(date(2026, 11, 10), date(2026, 11, 10))
+    assert calcular_periodo(date(2026, 11, 9), hoje) == Periodo(date(2026, 11, 10), date(2026, 11, 10))
+    assert calcular_periodo(date(2026, 11, 10), hoje) is None          # já em dia
+    assert calcular_periodo(None, date(2026, 1, 1)).de == date(2025, 12, 31)
+
+
+def test_periodo_recupera_fim_de_semana_e_respeita_limite():
+    # última execução ok foi sexta (dados de quinta); PC só ligou na segunda
+    assert calcular_periodo(date(2026, 11, 5), date(2026, 11, 9)) == Periodo(date(2026, 11, 6), date(2026, 11, 8))
+    p = calcular_periodo(date(2026, 9, 1), date(2026, 11, 11), max_dias=31)
+    assert p.dias == 31 and p.ate == date(2026, 11, 10)
+
+
+def test_estado_nunca_retrocede(tmp_path):
+    e = Estado(tmp_path / "estado.json")
+    assert e.ultima_data_ok() is None
+    e.registrar_sucesso(date(2026, 11, 10))
+    e.registrar_sucesso(date(2026, 11, 1))
+    assert e.ultima_data_ok() == date(2026, 11, 10)
+
+
+def test_main_recupera_dias_e_depois_fica_em_dia(tmp_path, monkeypatch):
+    import main as programa
+    from tests.mock_tms import gerar_exportacao
+
+    exp = tmp_path / "exp.xlsx"
+    exp.write_bytes(gerar_exportacao("10/11/2026"))
+    monkeypatch.setattr(programa, "RAIZ", tmp_path)
+    Estado(tmp_path / "estado.json").registrar_sucesso(date.today() - __import__("datetime").timedelta(days=4))
+
+    def rodar(*args):
+        monkeypatch.setattr("sys.argv", ["main.py", *args])
+        return programa.main()
+
+    assert rodar("--arquivo", str(exp)) == 0                     # busca os 3 dias que faltavam
+    assert Estado(tmp_path / "estado.json").ultima_data_ok() == date.today() - __import__("datetime").timedelta(days=1)
+    planilha = tmp_path / "saida" / "InclusaoServicosAcessorios.xlsx"
+    assert load_workbook(planilha).worksheets[0].max_row == 4
+    assert rodar("--arquivo", str(exp)) == 0                     # já em dia: nada a fazer
+    assert load_workbook(planilha).worksheets[0].max_row == 4
+
 
 
 CHAVE = ["Documento Logística Original", "Inclusão"]

@@ -228,17 +228,18 @@ class BotTMS:
             self.registrar_tela("papel_nao_confirmado")
             raise ErroBot(f"O papel '{papel}' não aparece no cabeçalho. A troca de papel falhou?")
 
-    def preencher_filtros(self, data_ref: date) -> None:
+    def preencher_filtros(self, data_de: date, data_ate: date) -> None:
         f = self.cfg["filtros"]
-        data_txt = data_ref.strftime(f.get("formato_data", "%d/%m/%Y"))
+        fmt = f.get("formato_data", "%d/%m/%Y")
+        de_txt, ate_txt = data_de.strftime(fmt), data_ate.strftime(fmt)
         log.info("Filtros: %s | %s | %s a %s | %s", f["tipo_solicitacao"], f["status"],
-                 data_txt, data_txt, f["usuario_solicitante"])
+                 de_txt, ate_txt, f["usuario_solicitante"])
 
         self._el("tipo_solicitacao").select_option(label=f["tipo_solicitacao"])
         self._esperar()
         self._select2("status_campo", "status", list(f["status"]))
-        self._data("data_de", data_txt)
-        self._data("data_ate", data_txt)
+        self._data("data_de", de_txt)
+        self._data("data_ate", ate_txt)
         self._select2("usuario_campo", "usuario_solicitante", [f["usuario_solicitante"]])
 
     def _data(self, chave: str, texto: str) -> None:
@@ -294,7 +295,7 @@ class BotTMS:
         log.info("Pesquisando...")
         self._clicar_postback(self._el("botao_pesquisar"))
 
-    def exportar_excel(self, data_ref: date) -> Path:
+    def exportar_excel(self, nome: str) -> Path:
         barra = self.sel["barra_processos"]
         itens = f"{barra} ul.dropdown-menu-list > li"
         pronto = self.sel.get("processo_concluido") or ".process-success"
@@ -314,7 +315,7 @@ class BotTMS:
         ultimo_status, clicou_em = "", 0.0
         while time.time() < fim:
             if self._downloads:
-                return self._salvar_download(self._downloads[-1], data_ref)
+                return self._salvar_download(self._downloads[-1], nome)
             status = " | ".join(" ".join(t.split()) for t in self.page.locator(itens).all_inner_texts() if t.strip())
             if status != ultimo_status:
                 log.info("Barra de processos: %s", status or "(vazia)")
@@ -355,18 +356,20 @@ class BotTMS:
         alvo = item.locator("a").first if item.locator("a").count() else item.locator(".desc").first
         alvo.click(force=True)
 
-    def _salvar_download(self, dl: Download, data_ref: date) -> Path:
+    def _salvar_download(self, dl: Download, nome: str) -> Path:
         ext = Path(dl.suggested_filename).suffix or ".xlsx"
-        destino = self.pasta_downloads / f"relatorio_{data_ref:%Y-%m-%d}_{datetime.now():%H%M%S}{ext}"
+        destino = self.pasta_downloads / f"relatorio_{nome}_{datetime.now():%Y%m%d_%H%M%S}{ext}"
         dl.save_as(str(destino))
         log.info("Relatório baixado: %s", destino)
         return destino
 
     # --------------------------------------------------------------- completo
-    def executar(self, data_ref: date) -> Path:
+    def executar(self, data_de: date, data_ate: date | None = None) -> Path:
+        data_ate = data_ate or data_de
         self.abrir_e_logar()
         self.escolher_papel()
         self.abrir_tela()
-        self.preencher_filtros(data_ref)
+        self.preencher_filtros(data_de, data_ate)
         self.pesquisar()
-        return self.exportar_excel(data_ref)
+        nome = f"{data_de:%Y-%m-%d}" + ("" if data_de == data_ate else f"_a_{data_ate:%Y-%m-%d}")
+        return self.exportar_excel(nome)

@@ -1,5 +1,9 @@
 @echo off
-REM Atalho para o Agendador de Tarefas do Windows.
+REM Usado pelo Agendador de Tarefas do Windows (ver agendar_tarefa.ps1).
 cd /d "%~dp0"
-call .venv\Scripts\activate.bat
-python main.py %*
+if not exist ".venv\Scripts\python.exe" (
+  echo Ambiente .venv nao encontrado. Siga a instalacao do README.
+  exit /b 2
+)
+".venv\Scripts\python.exe" main.py %*
+exit /b %ERRORLEVEL%

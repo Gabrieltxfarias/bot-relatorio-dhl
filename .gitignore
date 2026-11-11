@@ -6,3 +6,4 @@ saida/
 __pycache__/
 *.pyc
 backups/
+estado.json
