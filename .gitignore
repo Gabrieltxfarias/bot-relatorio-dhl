@@ -1,0 +1,8 @@
+.env
+perfil_navegador/
+downloads/
+logs/
+saida/
+__pycache__/
+*.pyc
+backups/

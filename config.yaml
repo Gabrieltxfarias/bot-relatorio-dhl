@@ -1,0 +1,80 @@
+# =====================================================================
+#  Configuração do bot de extração de relatório — TMS DHL (Benner)
+#  Tudo que depende da tela do sistema está aqui, para ajustar sem
+#  mexer no código.
+# =====================================================================
+
+urls:
+  inicial: "https://tmsbr.dhl.com/cli/shared/pages/paineisNovidades/novidades.aspx?i=K_CLI_SHARED_PAGES_PAINEISNOVIDADES_NOVIDADES&m=MAIN"
+  papel: "https://tmsbr.dhl.com/Roles/Select/K_ANALISTASERVICOSACESSORIOS"
+  tela: "https://tmsbr.dhl.com/cli/tms/operacional/pages/a/ServicosAcessorios/InclusaoServicos/Grid.aspx?i=K_INCLUSAO_SERVICOS_ACESSORIOS&m=MAIN"
+
+papel_nome: "Analista de Serviços Acessórios"   # texto conferido no cabeçalho após trocar o papel
+
+navegador:
+  headless: false            # false = janela visível (necessário no 1º login)
+  canal: "msedge"            # "msedge", "chrome" ou "" (Chromium do Playwright)
+  executavel: ""             # opcional: caminho do navegador (tem prioridade sobre canal)
+  pasta_perfil: "perfil_navegador"   # guarda cookies/sessão entre execuções
+  timeout_padrao_ms: 30000
+  timeout_login_s: 300       # tempo para você fazer login manual / aprovar MFA
+  timeout_relatorio_s: 900   # tempo máximo esperando a exportação terminar
+
+filtros:
+  tipo_solicitacao: "Receita de Documento"
+  status:
+    - "Aguardando Aprovação"
+    - "Aprovada"
+  usuario_solicitante: "Gabriel Teixeira de Farias"
+  dias_atras: 1              # 1 = dia anterior (data "de" = data "até")
+  formato_data: "%d/%m/%Y"
+
+seletores:
+  tipo_solicitacao: "#ctl00_Main_K_INCLUSODESERVIOSACESSRIOS_FilterControl_GERAL_TIPOSOLICITACAOselect"
+  data_de: "#ctl00_Main_K_INCLUSODESERVIOSACESSRIOS_FilterControl_GERAL_DATAINCLUSAODE_DATE"
+  data_ate: "#ctl00_Main_K_INCLUSODESERVIOSACESSRIOS_FilterControl_GERAL_DATAINCLUSAOATE_DATE"
+  # Campos select2 (Status e Usuário Solicitante). Se vazio, o bot acha o
+  # bloco <div data-field=... data-label=...> pelo rótulo abaixo.
+  # Se souber o data-field exato, preencha, ex.: "div[data-field='STATUS']"
+  status_campo: ""
+  usuario_campo: ""
+  botao_pesquisar: "#ctl00_Main_K_INCLUSODESERVIOSACESSRIOS_FilterControl_FilterButton"
+  tres_pontos: ".extra-options-button"
+  exportar_excel: "#ExportToExcel a"
+  barra_processos: "#header_task_bar"
+  processo_concluido: ".process-success"   # ícone/texto "Concluído" no item da barra
+  processo_erro: ""                        # opcional: marcador de falha no item
+
+rotulos:                     # usados só se status_campo/usuario_campo estiverem vazios
+  status: "Status"
+  usuario_solicitante: "Solicitante"
+
+planilha:
+  # Caminho da planilha online NA PASTA SINCRONIZADA DO ONEDRIVE no seu PC.
+  # O bot grava no arquivo e o OneDrive envia para a nuvem.
+  # Dica: no Explorer, Shift + botão direito no arquivo > "Copiar como caminho".
+  # Pode usar %OneDriveCommercial% (pasta do OneDrive corporativo), ex.:
+  #   arquivo: "%OneDriveCommercial%/Relatorios/InclusaoServicosAcessorios.xlsx"
+  # Use barras normais (/) ou duplique as invertidas (\\).
+  # A planilha fica com exatamente as colunas do relatório do TMS
+  # (Viagem ... Usuário), mantendo datas/horas e números como tais.
+  arquivo: "saida/InclusaoServicosAcessorios.xlsx"
+  aba: ""                    # vazio = primeira aba da planilha
+  backups_mantidos: 30       # cópias de segurança em backups/ antes de cada gravação
+  espera_arquivo_aberto_min: 10   # se a planilha estiver aberta no Excel do PC, espera até X min
+  # Filtros aplicados ao relatório exportado ANTES de gravar (o arquivo
+  # original em downloads/ não é alterado). Só ficam as linhas cujo valor
+  # na coluna esteja na lista. Pode adicionar mais valores ou mais filtros.
+  filtrar_linhas:
+    - coluna: "Serviço"
+      valores:
+        - "Troca de Gelo por Volume - Cliente/Transportador"
+  # Colunas que identificam um lançamento. Dois lançamentos no mesmo documento
+  # entram como linhas separadas (horário de inclusão diferente). Se o mesmo
+  # lançamento vier de novo com algo diferente (ex.: status), a linha é
+  # ATUALIZADA, não duplicada.
+  # Nomes tolerantes a acento/maiúsculas e parciais ("Inclusão" casa com
+  # "Data Inclusão"). Se alguma não existir no relatório, compara a linha inteira.
+  colunas_chave:
+    - "Documento Logística Original"
+    - "Inclusão"
