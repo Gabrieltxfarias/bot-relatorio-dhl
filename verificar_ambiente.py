@@ -108,7 +108,9 @@ def checar_navegador(cfg: dict) -> None:
     except Exception as e:
         primeira = str(e).strip().splitlines()[0][:150]
         falha(f"Não consegui abrir o navegador '{canal or 'chromium'}'",
-              f"Rode: playwright install {canal or 'chromium'}   (erro: {primeira})")
+              ("Confira se o Microsoft Edge está instalado e abre normalmente; "
+               if canal == "msedge" else f"Rode: playwright install {canal or 'chromium'}; ")
+              + f"(erro: {primeira})")
     perfil = RAIZ / nav.get("pasta_perfil", "perfil_navegador")
     if perfil.exists():
         ok("Sessão do navegador salva", str(perfil))

@@ -23,8 +23,17 @@ Na pasta do projeto:
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-playwright install msedge
 ```
+O bot usa o **Microsoft Edge que já vem no Windows**, então não precisa rodar `playwright install`.
+
+### Se o `pip` der "Connection to pypi.org timed out"
+A rede da empresa está bloqueando o site de pacotes. Opções:
+1. **Proxy corporativo:** veja o proxy com `netsh winhttp show proxy` ou peça o endereço à TI. Depois instale passando o proxy:
+   `pip install --proxy http://ENDERECO:PORTA -r requirements.txt`
+2. **Outra rede:** desconecte a VPN, use a rede de casa e rode o `pip install` de novo. Só a instalação precisa de internet aberta.
+3. **Instalação offline:** use o pacote `pacotes_offline_py3.XX.zip` da sua versão do Python (`python --version`).
+   Descompacte a pasta `pacotes` dentro do projeto e rode:
+   `pip install --no-index --find-links pacotes -r requirements.txt`
 
 ### Verificar se o PC está pronto
 ```bat
