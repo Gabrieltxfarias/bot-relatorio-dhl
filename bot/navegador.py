@@ -66,9 +66,9 @@ JS_SELECIONAR_POR_TEXTO = """(el, textos) => {
   if (!sel) return false;
   const norm = s => s.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim();
   const opts = [...sel.options];
-  const escolhidas = textos.map(t => opts.find(o => norm(o.text) === norm(t)));
-  if (escolhidas.some(o => !o)) return false;
-  const valores = escolhidas.map(o => o.value);
+  const grupos = textos.map(t => opts.filter(o => norm(o.text) === norm(t)));
+  if (grupos.some(g => g.length === 0)) return false;
+  const valores = grupos.flat().map(o => o.value);   // nomes repetidos: seleciona todos
   if (window.jQuery) { jQuery(sel).val(sel.multiple ? valores : valores[0]).trigger('change'); }
   else { opts.forEach(o => o.selected = valores.includes(o.value)); sel.dispatchEvent(new Event('change', {bubbles: true})); }
   return true;
@@ -282,7 +282,9 @@ class BotTMS:
         self._select2("status_campo", "status", list(f["status"]))
         self._data("data_de", de_txt)
         self._data("data_ate", ate_txt)
-        self._select2("usuario_campo", "usuario_solicitante", [f["usuario_solicitante"]])
+        usuarios = f["usuario_solicitante"]
+        usuarios = [usuarios] if isinstance(usuarios, str) else list(usuarios)
+        self._select2("usuario_campo", "usuario_solicitante", usuarios)
 
     def _selecionar_com_postback(self, chave: str, texto: str) -> None:
         """Seleciona uma opção num <select> que pode recarregar a página (AutoPostBack)."""
@@ -358,17 +360,38 @@ class BotTMS:
             opcoes = self.page.locator(".select2-container--open .select2-results__option")
             exata = opcoes.filter(has_text=re.compile(rf"^\s*{re.escape(texto)}\s*$", re.I))
             contem = opcoes.filter(has_text=re.compile(re.escape(texto), re.I))
-            try:
-                contem.first.wait_for(state="visible", timeout=15000)
-            except PWTimeout:
-                vistos = [t for t in opcoes.all_inner_texts() if not rx_carregando.search(t)]
-                raise ErroBot(f"'{texto}' não apareceu na lista. Opções vistas: {vistos[:10]}")
-            alvo = exata.first if exata.count() else contem.first
-            if alvo.get_attribute("aria-selected") == "true":
-                log.info("'%s' já estava selecionado.", texto)
-            else:
-                alvo.click()
+
+            def esperar_opcoes():
+                try:
+                    contem.first.wait_for(state="visible", timeout=15000)
+                except PWTimeout:
+                    vistos = [t for t in opcoes.all_inner_texts() if not rx_carregando.search(t)]
+                    raise ErroBot(f"'{texto}' não apareceu na lista. Opções vistas: {vistos[:10]}")
+
+            esperar_opcoes()
+            marcadas, ja_estavam = 0, None
+            for _ in range(6):  # nome repetido na lista (ex.: duas "Denise Maria da Silva"): marca todas
+                alvos = exata if exata.count() else contem
+                total = alvos.count() if exata.count() else min(alvos.count(), 1)
+                pendentes = [k for k in range(total) if alvos.nth(k).get_attribute("aria-selected") != "true"]
+                if ja_estavam is None:
+                    ja_estavam = total - len(pendentes)
+                if not pendentes:
+                    break
+                alvos.nth(pendentes[0]).click()
+                marcadas += 1
                 self._esperar()
+                if len(pendentes) == 1:
+                    break
+                self._fechar_listas_select2()  # reabre a lista para marcar o próximo igual
+                busca.focus()
+                busca.fill("")
+                busca.press_sequentially(texto, delay=40)
+                esperar_opcoes()
+            if marcadas == 0:
+                log.info("'%s' já estava selecionado.", texto)
+            elif marcadas + (ja_estavam or 0) > 1:
+                log.info("'%s': %d opções com esse nome na lista — todas selecionadas.", texto, marcadas + (ja_estavam or 0))
             busca.fill("")
         self._fechar_listas_select2()
 

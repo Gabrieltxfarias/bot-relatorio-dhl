@@ -4,7 +4,8 @@ Este bot faz o seguinte:
 1. Entra no TMS, reaproveitando a sessão salva ou fazendo login sozinho com a senha guardada no Windows.
 2. Escolhe o papel **Analista de Serviços Acessórios** e abre **Inclusão de Serviços Acessórios**, ambos por link direto.
 3. Aplica os filtros: tipo **Receita de Documento**, status **Aguardando Aprovação** e **Aprovada**,
-   **data inicial e final iguais ao dia anterior** e usuário solicitante **Gabriel Teixeira de Farias**.
+   **data inicial e final iguais ao dia anterior** e os usuários solicitantes listados em `filtros.usuario_solicitante`.
+   Se um nome aparecer repetido na lista do TMS, o bot marca todas as opções com esse nome.
 4. Clica em **Pesquisar**, depois em **⋮ > Exportar para Excel**, espera o aviso de relatório gerado e baixa o arquivo.
 5. Do arquivo exportado, mantém **só o serviço "Troca de Gelo por Volume - Cliente/Transportador"**
    (configurável em `planilha.filtrar_linhas`) e descarta as outras linhas. O arquivo original em `downloads/` não é alterado.

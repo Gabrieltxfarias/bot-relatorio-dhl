@@ -196,7 +196,7 @@ def test_fluxo_completo_no_tms_falso(tmp_path, monkeypatch):
             "tipo": "4",                      # Receita de Documento
             "status": ["10", "11"],           # Aguardando Aprovação + Aprovada (Em Elaboração removida)
             "de": "10/11/2026", "ate": "10/11/2026",
-            "usuario": ["Gabriel Teixeira De Farias"],
+            "usuario": ["u2", "u4", "u5", "u6"],   # Gabriel, as DUAS Denise e Camila (não "Camila Pereira")
         }
         df = filtrar_linhas(ler_exportacao(arquivo), "Serviço", [GELO])
         assert len(df) == 3 and set(df["Serviço"]) == {GELO}

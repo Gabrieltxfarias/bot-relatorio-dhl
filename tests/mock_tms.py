@@ -18,7 +18,9 @@ P = "ctl00$Main$K_INCLUSODESERVIOSACESSRIOS$FilterControl$GERAL$"
 ID = "ctl00_Main_K_INCLUSODESERVIOSACESSRIOS_FilterControl_GERAL_"
 URL_PAPEL = "/Roles/Select/K_ANALISTASERVICOSACESSORIOS"
 URL_GRID = "/cli/tms/operacional/pages/a/ServicosAcessorios/InclusaoServicos/Grid.aspx"
-USUARIOS = ["Gabriel Silva", "Gabriel Teixeira De Farias", "Maria Souza"]
+USUARIOS = [("u1", "Gabriel Silva"), ("u2", "Gabriel Teixeira De Farias"), ("u3", "Maria Souza"),
+            ("u4", "Denise Maria da Silva"), ("u5", "Denise Maria da Silva"), ("u6", "Camila Pereira Damasceno"),
+            ("u7", "Camila Pereira")]
 
 LOGIN = """<form method='post' action='/login'>
 <label>Usuário <input name='username'></label>
@@ -162,7 +164,8 @@ class Handler(BaseHTTPRequestHandler):
                  ("4", "Receita de Documento"), ("5", "Despesa e Receita de Viagem")]
         status = [("10", "Aguardando Aprovação"), ("11", "Aprovada"), ("12", "Cancelada"),
                   ("13", "Em Elaboração"), ("14", "Reprovada")]
-        users_sel = "".join(opt(u, u, True) for u in filtro["usuario"])
+        nomes = dict(USUARIOS)
+        users_sel = "".join(opt(u, nomes.get(u, u), True) for u in filtro["usuario"])
         corpo = f"""
 <header>Analista de Serviços Acessórios (DHL)</header>
 <form method="post" id="aspnetForm">
@@ -196,11 +199,11 @@ $('#status').select2({{width: '300px', closeOnSelect: false,
     var q = (params.data.term || '').toLowerCase();
     setTimeout(function() {{ ok({{results: STATUS.filter(s => s.text.toLowerCase().includes(q))}}); }}, 300);
   }} }} }});
-var USUARIOS = {USUARIOS!r};
+var USUARIOS = {[{"id": i, "text": t} for i, t in USUARIOS]!r};
 $('#usr').select2({{width: '300px', placeholder: 'Todos', minimumInputLength: 3,
   ajax: {{ delay: 300, transport: function(params, ok) {{
     var q = (params.data.term || '').toLowerCase();
-    setTimeout(function() {{ ok({{results: USUARIOS.filter(u => u.toLowerCase().includes(q)).map(u => ({{id: u, text: u}}))}}); }}, 400);
+    setTimeout(function() {{ ok({{results: USUARIOS.filter(u => u.text.toLowerCase().includes(q))}}); }}, 400);
   }} }} }});
 </script>"""
         self._html(corpo)

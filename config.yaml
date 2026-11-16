@@ -29,7 +29,10 @@ filtros:
   status:
     - "Aguardando Aprovação"
     - "Aprovada"
-  usuario_solicitante: "Gabriel Teixeira de Farias"
+  usuario_solicitante:          # um ou mais usuários (nomes repetidos na lista: todos são marcados)
+    - "Gabriel Teixeira de Farias"
+    - "Denise Maria da Silva"
+    - "Camila Pereira Damasceno"
   # Período: normalmente o dia anterior. Se o PC ficou desligado, o bot busca
   # de uma vez todos os dias que faltaram (lembra a última data em estado.json).
   max_dias_recuperacao: 31   # limite de dias recuperados numa única execução
