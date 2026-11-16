@@ -39,7 +39,7 @@ def test_main_recupera_dias_e_depois_fica_em_dia(tmp_path, monkeypatch):
     from tests.mock_tms import gerar_exportacao
 
     exp = tmp_path / "exp.xlsx"
-    exp.write_bytes(gerar_exportacao("10/11/2026"))
+    exp.write_bytes(gerar_exportacao((date.today() - __import__("datetime").timedelta(days=1)).strftime("%d/%m/%Y")))
     from io import StringIO
 
     from ruamel.yaml import YAML
